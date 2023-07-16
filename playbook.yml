@@ -1,0 +1,175 @@
+---
+- hosts: all
+  become: yes
+
+  vars_files:
+    - external_vars.yml
+
+  vars:
+    attack_range_location: "/opt/attack_range"
+    aws_region: "ap-southeast-2"
+
+  pre_tasks:
+  - name: Update apt cache.
+    apt: update_cache=yes
+
+  - name: Upgrade all packages.
+    apt:
+      name: "*"
+      state: latest
+
+  tasks:
+  - name: Install required modules.
+    apt:
+      name:
+        - git
+        - unzip
+        - python3-pip
+        - curl
+        - python-is-python3
+        - python3-apt
+      state: latest
+
+  - name: Create folder for attack range repo.
+    file:
+      path: "{{ attack_range_location }}"
+      state: directory
+
+  - name: Clone the attack range!
+    git:
+      repo: "https://github.com/ajburnell/attack_range"
+      clone: true
+      dest: "{{ attack_range_location }}"
+
+  - name: Grab the Hashicorp GPG key
+    shell: |
+        wget -O- https://apt.releases.hashicorp.com/gpg | \
+        gpg --dearmor | \
+        sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+
+  - name: Install the Hashicorp key and repository
+    deb822_repository:
+      uris: "https://apt.releases.hashicorp.com"
+      suites: "{{ ansible_distribution_release }}"
+      state: present
+      components: main
+      name: hashicorp
+      enabled: true
+      architectures: amd64
+      signed_by: "/usr/share/keyrings/hashicorp-archive-keyring.gpg"
+
+  - name: deb822_repository Does not update cache. Do it now...
+    apt: update_cache=yes
+
+  - name: Install Terraform and Packer.
+    apt:
+      name:
+        - terraform
+        - packer
+      state: present
+
+  - name: Check if AWS CLI is installed.
+    stat:
+      path: /usr/local/aws-cli
+    register: aws_cli
+
+  - name: Download, unarchive and install AWS CLI block if it isn't installed.
+    block:
+      # https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+      - name: Download AWS CLI
+        get_url:
+          url: "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
+          dest: "/tmp/awscliv2.zip"
+
+      - name: Unarchive the AWS package
+        unarchive:
+          remote_src: yes
+          src: "/tmp/awscliv2.zip"
+          dest: /tmp
+
+      - name: Run the AWS installer
+        command: "/tmp/aws/install"
+        register: aws_install
+
+      - name: Return information from the AWS CLI install.
+        debug:
+          var: aws_install
+          verbosity: 2
+
+      - name: Add AWSCLI to path via shell config script
+        blockinfile:
+          path: "~/.profile"
+          create: yes
+          insertafter: EOF
+          state: present
+          marker: "### {mark} ANSIBLE MANAGED BLOCK ###"
+          block: |
+            export PATH="/usr/local/bin:$PATH"
+
+      - name: Create the AWS configuration folder
+        file:
+          path: "~/.aws"
+          state: directory
+
+      - name: Configure the AWS CLI
+        blockinfile:
+          path: "~/.aws/config"
+          create: yes
+          insertafter: EOF
+          state: present
+          marker: "### {mark} ANSIBLE MANAGED BLOCK ###"
+          block: |
+            [default]
+            region = {{ aws_region }}
+            output = text
+
+      - name: Load up the AWS credentials
+        blockinfile:
+          path: "~/.aws/credentials"
+          create: yes
+          insertafter: EOF
+          state: present
+          marker: "### {mark} ANSIBLE MANAGED BLOCK ###"
+          block: |
+            [default]
+            aws_access_key_id = {{ aws_access_key }}
+            aws_secret_access_key = {{ aws_secret_key }}
+
+    when: aws_cli.stat.exists == False
+
+  - name: Does Poetry exist?
+    stat:
+      path: "~/.local/bin/poetry"
+    register: poetry_exists
+
+  # This is messy and needs some work...
+  - name: Install Poetry and setup the attack range virtual environment if Poetry doesn't exist.
+    block:
+      # https://python-poetry.org/docs/
+      - name: Install Poetry
+        shell: "curl -sSL https://install.python-poetry.org | python3 -"
+        register: install_poetry
+
+      - name: Poetry install outcome
+        debug:
+          var: install_poetry
+
+      - name: Add Poetry to user path via shell config script
+        blockinfile:
+          path: "~/.profile"
+          create: yes
+          insertafter: EOF
+          state: present
+          marker: "### {mark} ANSIBLE MANAGED BLOCK ###"
+          block: |
+            export PATH="~/.local/bin:$PATH"
+
+      - name: Configure the attack range Poetry virtual environment.
+        command:
+          cmd: "~/.local/bin/poetry install"
+          chdir: "{{ attack_range_location }}"
+
+        environment:
+          PATH: "~/.cache/pypoetry/virtualenvs/attack-range-iKP01clm-py3.10/bin:~/.local/bin"
+
+    when: poetry_exists.stat.exists == False
