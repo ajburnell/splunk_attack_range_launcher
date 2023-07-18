@@ -40,6 +40,7 @@
       repo: "https://github.com/ajburnell/attack_range"
       clone: true
       dest: "{{ attack_range_location }}"
+      version: "spot_instances"
 
   - name: Grab the Hashicorp GPG key
     shell: |
