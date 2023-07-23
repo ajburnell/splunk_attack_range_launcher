@@ -39,6 +39,13 @@ data "aws_ami" "ubuntu_x86_64" {
     }
 }
 
+## Generate CTFd user password
+resource "random_password" "ctfd_password" {
+  length           = 16
+  special          = true
+  override_special = "_%@"
+}
+
 ## Generate a private key
 resource "tls_private_key" "ctfd_key" {
   algorithm = "RSA"
@@ -107,7 +114,7 @@ resource "aws_instance" "ctfd_server" {
       "sudo cp /tmp/ctfd_key.pub /home/ctfd/.ssh/authorized_keys",
       "sudo chown -R ctfd:ctfd /home/ctfd/.ssh",
       "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys",
-      "echo \"ctfd:${var.ctfd_password}\" | sudo chpasswd",
+      "echo \"ctfd:${var.random_password.ctfd_password.result}\" | sudo chpasswd",
       "sudo chmod 440 /etc/sudoers.d/ctfd"
     ]
 
