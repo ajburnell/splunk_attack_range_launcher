@@ -127,7 +127,7 @@
       block: |
         server {
           listen 443;
-          server_name {{ ctfd_domain_name }} {{ ctfd_ec2_public_ip }};
+          server_name {{ ctfd_domain_name }} {{ ctfd_ec2_public_ip.stdout }};
           client_max_body_size 75M;
           
           location / {
