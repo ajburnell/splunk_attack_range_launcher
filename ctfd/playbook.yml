@@ -40,6 +40,7 @@
         - build-essential
         - libffi-dev
     become: yes
+    
   - name: Create CTFd folder.
     file:
       path: "{{ ctfd_location }}"
