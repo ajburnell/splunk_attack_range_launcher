@@ -121,7 +121,7 @@ resource "aws_instance" "ctfd_server" {
       "sudo chown -R ctfd:ctfd /home/ctfd/.ssh",
       "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys",
       #" echo 'ctfd:${random_password.ctfd_password.result}' | sudo chpasswd",
-      "sudo chmod 440 /etc/sudoers.d/ctfd"
+      #"sudo chmod 440 /etc/sudoers.d/ctfd"
     ]
 
    connection {
@@ -135,7 +135,7 @@ resource "aws_instance" "ctfd_server" {
   provisioner "local-exec" {
     command = <<EOT
     echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.ini
-    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd --become-password-file ctfd.pass -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
+    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ubuntu -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
   EOT
   }
 
