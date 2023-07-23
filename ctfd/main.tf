@@ -100,7 +100,7 @@ resource "aws_instance" "ctfd_server" {
   ## Stops us using the default OS account to run the webserver
   provisioner "remote-exec" {
     inline = [
-      "sudo useradd ctfd -m -s /bin/bash --quiet --disabled-password",
+      "sudo useradd ctfd -m -s /bin/bash",
       "sudo usermod -aG sudo ctfd",
       "sudo mkdir -p /home/ctfd/.ssh",
       "sudo cp /tmp/ctfd_key.pub /home/ctfd/.ssh/authorized_keys",
