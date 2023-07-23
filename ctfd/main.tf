@@ -91,7 +91,7 @@ resource "aws_instance" "ctfd_server" {
     }
   }
 
-  instance_type = "m5.medium"
+  instance_type = "m5.large"
   tags = {
     Name = "ctfd"
   }
