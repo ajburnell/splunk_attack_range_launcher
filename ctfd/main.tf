@@ -46,6 +46,12 @@ resource "random_password" "ctfd_password" {
   override_special = "_%@"
 }
 
+## For Ansible to read when escalating privileges
+resource "local_sensitive_file" "foo" {
+  content  = random_password.ctfd_password.result
+  filename = "ctfd.pass"
+}
+
 ## Generate a private key
 resource "tls_private_key" "ctfd_key" {
   algorithm = "RSA"
@@ -129,7 +135,7 @@ resource "aws_instance" "ctfd_server" {
   provisioner "local-exec" {
     command = <<EOT
     echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.ini
-    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
+    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd --become-password-file ctfd.pass -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
   EOT
   }
 
