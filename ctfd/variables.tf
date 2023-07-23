@@ -13,7 +13,7 @@ variable "ctfd_hostname" {
   description = "The hostname of the ctfd server for the A record."
 }
 
-variable "r53_domain" {
+variable "r53_zone_id" {
   type = string  
-  description = "The domain zone for where we want to create the Route 53 records."
+  description = "The domain zone ID for where we want to create the Route 53 records."
 }
