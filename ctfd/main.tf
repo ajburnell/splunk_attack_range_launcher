@@ -51,7 +51,7 @@ resource "local_file" "local_pub_key" {
 }
 
 ## Create the EC2 instance with spot pricing
-resource "aws_instance" "ubuntu_x86_64" {
+resource "aws_instance" "ctfd_server" {
   ami = data.aws_ami.ubuntu_x86_64.id
   key_name = aws_key_pair.akp.key_name
   associate_public_ip_address = true
@@ -68,22 +68,13 @@ resource "aws_instance" "ubuntu_x86_64" {
     Name = "ctfd"
   }
 
-  ## Create the Ansible inventory file
-  resource "local_file" "foo" {
-  content  = <<EOT
-    [ctfd]
-    ${aws_instance.this.public_ip}
-  EOT
-  filename = "hosts.ini"
-}
-
   ## Upload our unique key for the CTFd user.
   provisioner "file" {
     source      =  var.public_key_filename
     destination = "/tmp/ctfd_key.pub"
 
   connection {
-      host        = aws_instance.this.public_ip
+      host        = aws_instance.ctfd_server.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${file(var.private_key_filename)}"
@@ -104,7 +95,7 @@ resource "aws_instance" "ubuntu_x86_64" {
     ]
 
    connection {
-      host        = aws_instance.this.public_ip
+      host        = aws_instance.ctfd_server.public_ip
       type        = "ssh"
       user        = "ubuntu"
       private_key = "${file(var.private_key_filename)}"
@@ -112,7 +103,11 @@ resource "aws_instance" "ubuntu_x86_64" {
   }
 
   provisioner "local-exec" {
-    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml"
+    command = <<EOT
+    echo "[ctfd]" >> hosts.ini
+    echo "${aws_instance.ctfd_server.public_ip}" >> hosts.ini
+    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
+  EOT
   }
 
   depends_on = [
