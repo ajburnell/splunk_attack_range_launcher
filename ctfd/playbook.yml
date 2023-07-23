@@ -24,18 +24,7 @@
       state: latest
   become: yes
 
-  # Currently doing this in Terraform.
   tasks:
-  #- name: Configure a ctfd user.
-  #  user:
-  #    name: "{{ ctfd_system_user }}"
-  #    state: present
-  #    append: true
-  #    groups: sudo
-  #    home: "/home/ctfd"
-  #    shell: "/bin/bash"
-  #  become: yes
-
   - name: Install required modules.
     apt:
       name:
@@ -62,8 +51,6 @@
       repo: "https://github.com/CTFd/CTFd"
       clone: true
       dest: "{{ ctfd_location }}"
-    remote_user: ctfd
-    ignore_errors: true
 
   - name: Install requirements with pip.
     pip:
