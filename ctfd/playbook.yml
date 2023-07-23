@@ -2,9 +2,10 @@
 ## Tested working with Ubuntu on AWS and with Vagrant ##
 
 ## TODO:
-## - Implement mariadb.
+## - Implement mariadb and secure installation.
 ## - Implement redis.
-#
+## - Make certbot idempotent. It injects code into middle of Ansible managed block :-|
+
 # https://nopresearcher.github.io/Deploying-CTFd/
 # https://github.com/CTFd/CTFd/wiki/Advanced-Deployment
 
@@ -114,11 +115,6 @@
 
 ## NGINX configuration ##
 ## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
-
-  - name: Grab the public IP first so we can use it for rapid access to test.
-    command: curl http://169.254.169.254/latest/meta-data/public-ipv4
-    register: ctfd_ec2_public_ip
-
   - name: Create the NGINX CTFd site configuration
     blockinfile:
       create: true
@@ -168,3 +164,7 @@
       enabled: true
       name: nginx
     become: yes
+
+  - name: Install SSL certificate with certbot
+    command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
+    register: certbot
