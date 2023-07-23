@@ -24,17 +24,17 @@
       state: latest
   become: yes
 
-  tasks:
-  - name: Configure a ctfd user.
-    user:
-      name: "{{ ctfd_system_user }}"
-      password: "$6$YboeLHWpB0LeskA3$fSj9UMcNbhO6XMskg4ZAbvzDuegE0okW7I9lazvoZJJzbCb3GtQKIDZSZR9KRpKSgnWlAUvzkmA2HDyNl/Mjx."
-      state: present
-      append: true
-      groups: sudo
-      home: "/home/ctfd"
-      shell: "/bin/bash"
-    become: yes
+  # Currently doing this in Terraform.
+  #tasks:
+  #- name: Configure a ctfd user.
+  #  user:
+  #    name: "{{ ctfd_system_user }}"
+  #    state: present
+  #    append: true
+  #    groups: sudo
+  #    home: "/home/ctfd"
+  #    shell: "/bin/bash"
+  #  become: yes
 
   - name: Install required modules.
     apt:
@@ -62,6 +62,7 @@
       repo: "https://github.com/CTFd/CTFd"
       clone: true
       dest: "{{ ctfd_location }}"
+    remote_user: ctfd
     ignore_errors: true
 
   - name: Install requirements with pip.
