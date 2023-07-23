@@ -123,7 +123,7 @@
   - name: Create the NGINX CTFd site configuration
     blockinfile:
       create: true
-      path: "/etc/nginx/sites-available/ctfd"
+      path: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
       state: present
       block: |
         server {
@@ -145,8 +145,8 @@
 
   - name: Link the new NGINX configuration.
     file:
-      src: "/etc/nginx/sites-available/ctfd"
-      dest: "/etc/nginx/sites-enabled/ctfd"
+      src: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
+      dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
       state: link
 
   - name: Restart the CTFd service. It seems to need this.
