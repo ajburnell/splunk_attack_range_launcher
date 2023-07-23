@@ -1,0 +1,4 @@
+ctfd_location: "/var/www/ctfd"
+ctfd_system_user: "ctfd"
+ctfd_nginx_server_name: "ctfd"
+ctfd_domain_name: "ctfd.ablab.com.au"
