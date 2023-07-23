@@ -149,11 +149,10 @@
       dest: "/etc/nginx/sites-enabled/ctfd"
       state: link
 
-  - name: Enable and start the CTFd service.
+  - name: Restart the CTFd service. It seems to need this.
     service:
       name: ctfd
       state: restarted
-      enabled: true
     become: yes
 
   - name: Remove NGINX default configurations
