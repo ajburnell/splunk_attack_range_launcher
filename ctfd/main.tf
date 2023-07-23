@@ -39,19 +39,6 @@ data "aws_ami" "ubuntu_x86_64" {
     }
 }
 
-## Generate CTFd user password
-resource "random_password" "ctfd_password" {
-  length           = 16
-  special          = true
-  override_special = "_%@"
-}
-
-## For Ansible to read when escalating privileges
-resource "local_sensitive_file" "ctfd_password" {
-  content  = random_password.ctfd_password.result
-  filename = "ctfd.pass"
-}
-
 ## Generate a private key
 resource "tls_private_key" "ctfd_key" {
   algorithm = "RSA"
