@@ -2,7 +2,6 @@
 ## Tested working with Ubuntu on AWS and with Vagrant ##
 
 ## TODO:
-## - Generate the ctfd user password on the fly.
 ## - Implement mariadb.
 ## - Implement redis.
 #
