@@ -111,7 +111,7 @@ resource "aws_instance" "ctfd_server" {
   }
 
   depends_on = [
-        aws_key_pair.generated_key,
+        aws_key_pair.akp,
         local_file.local_key_pair
         ]
 }
