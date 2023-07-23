@@ -107,7 +107,7 @@ resource "aws_instance" "ctfd_server" {
       "sudo cp /tmp/ctfd_key.pub /home/ctfd/.ssh/authorized_keys",
       "sudo chown -R ctfd:ctfd /home/ctfd/.ssh",
       "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys",
-      "sudo echo "ctfd ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ctfd",
+      "sudo echo \"ctfd ALL=(ALL) NOPASSWD:ALL\" > /etc/sudoers.d/ctfd",
       "sudo chmod 440 /etc/sudoers.d/ctfd"
     ]
 
