@@ -153,5 +153,5 @@ resource "aws_route53_record" "ctfd-a" {
   name    = var.ctfd_hostname
   type    = "A"
   ttl     = "300"
-  records = aws_instance.ctfd_server.public_ip
+  records = [ aws_instance.ctfd_server.public_ip ]
 }
