@@ -134,7 +134,7 @@ resource "aws_instance" "ctfd_server" {
   provisioner "local-exec" {
     command = <<EOT
     echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.ini
-    ANSIBLE_FORCE_COLOR=1 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
+    ANSIBLE_FORCE_COLOR=1 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml -vv
   EOT
   }
 
