@@ -143,3 +143,15 @@ resource "aws_instance" "ctfd_server" {
         local_file.local_key_pair
         ]
 }
+
+resource "aws_route53_zone" "main" {
+  name = var.r53_domain
+}
+
+resource "aws_route53_record" "ctfd-a" {
+  zone_id = aws_route53_zone.main.zone_id
+  name    = var.ctfd_hostname
+  type    = "A"
+  ttl     = "300"
+  records = aws_instance.ctfd_server.public_ip
+}
