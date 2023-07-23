@@ -47,7 +47,7 @@ resource "random_password" "ctfd_password" {
 }
 
 ## For Ansible to read when escalating privileges
-resource "local_sensitive_file" "foo" {
+resource "local_sensitive_file" "ctfd_password" {
   content  = random_password.ctfd_password.result
   filename = "ctfd.pass"
 }
