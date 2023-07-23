@@ -1,0 +1,172 @@
+## Configure a CTFd server with gunicorn and NGINX ##
+## Tested working with Ubuntu on AWS and with Vagrant ##
+
+## TODO:
+## - Generate the ctfd user password on the fly.
+## - Implement mariadb.
+## - Implement redis.
+#
+# https://nopresearcher.github.io/Deploying-CTFd/
+# https://github.com/CTFd/CTFd/wiki/Advanced-Deployment
+
+- hosts: ctfd
+
+  vars_files:
+    - ctfd_external_vars.yml
+
+  pre_tasks:
+  - name: Update cache.
+    apt: update_cache=yes
+
+  - name: Upgrade all packages.
+    apt:
+      name: "*"
+      state: latest
+  become: yes
+
+  tasks:
+  - name: Configure a ctfd user.
+    user:
+      name: "{{ ctfd_system_user }}"
+      password: "$6$YboeLHWpB0LeskA3$fSj9UMcNbhO6XMskg4ZAbvzDuegE0okW7I9lazvoZJJzbCb3GtQKIDZSZR9KRpKSgnWlAUvzkmA2HDyNl/Mjx."
+      state: present
+      append: true
+      groups: sudo
+      home: "/home/ctfd"
+      shell: "/bin/bash"
+    become: yes
+
+  - name: Install required modules.
+    apt:
+      name:
+        - git
+        - unzip
+        - python3-pip
+        - curl
+        - python-setuptools
+        - virtualenv
+        - nginx
+        - mariadb-server
+        - tmux
+        - build-essential
+        - libffi-dev
+    become: yes
+
+  - name: Create CTFd folder.
+    file:
+      path: "{{ ctfd_location }}"
+      state: directory
+
+  - name: Clone CTFd git repository.
+    git:
+      repo: "https://github.com/CTFd/CTFd"
+      clone: true
+      dest: "{{ ctfd_location }}"
+    ignore_errors: true
+
+  - name: Install requirements with pip.
+    pip:
+      requirements: "{{ ctfd_location }}/requirements.txt"
+      virtualenv: "{{ ctfd_location }}/venv"
+
+  - name: Set owner of ctfd to it's user.
+    file:
+      owner: "{{ ctfd_system_user }}"
+      group: "www-data"
+      recurse: yes
+      path: "{{ ctfd_location }}"
+
+  - name: Install Let's Encrypt.
+    pip:
+      state: present
+      name:
+        - certbot
+        - certbot-nginx
+
+  - name: Create logging locations for ctfd service.
+    file:
+      path: "/var/log/ctfd/"
+      state: directory
+      owner: ctfd
+      group: www-data
+
+## GUNICORN settings ##
+## We increase the keep-alive as it's sitting behind NGINX ##
+## Ref: https://docs.gunicorn.org/en/stable/settings.html ##
+## Recommended workers is 2-4 x CPU_CORES
+## Value is set based on a 4 VCPU AWS/GCP host.
+## Ref: https://medium.com/building-the-system/gunicorn-3-means-of-concurrency-efbb547674b7
+
+  - name: Create the gunicorn ctfd system unit service file.
+    blockinfile:
+      create: true
+      path: "/etc/systemd/system/ctfd.service"
+      state: present
+      block: |
+        [Unit]
+        Description=Gunicorn instance to serve ctfd
+        After=network.target
+
+        [Service]
+        User={{ ctfd_system_user }}
+        Group=www-data
+        WorkingDirectory={{ ctfd_location }}
+        Environment="PATH={{ ctfd_location }}/venv/bin"
+        ExecStart={{ ctfd_location }}/venv/bin/gunicorn --bind unix:app.sock --keep-alive 4 --workers 8 --worker-class=gevent 'CTFd:create_app()' --access-logfile '/var/log/ctfd/access.log' --error-logfile '/var/log/ctfd/error.log'
+
+        [Install]
+        WantedBy=multi-user.target
+    become: yes
+
+## NGINX configuration ##
+## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
+
+  - name: Create the NGINX CTFd site configuration
+    blockinfile:
+      create: true
+      path: "/etc/nginx/sites-available/ctfd"
+      state: present
+      block: |
+        server {
+          listen 443;
+          server_name {{ ctfd_domain_name }};
+          client_max_body_size 75M;
+          location / {
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Host $http_host;
+            # we don't want nginx trying to do something clever with
+            # redirects, we set the Host: header above already.
+            proxy_redirect off;
+            proxy_pass http://unix:{{ ctfd_location }}/app.sock;
+          }
+        }
+    become: yes
+
+  - name: Link the new NGINX configuration.
+    file:
+      src: "/etc/nginx/sites-available/ctfd"
+      dest: "/etc/nginx/sites-enabled/ctfd"
+      state: link
+
+  - name: Enable and start the CTFd service.
+    service:
+      name: ctfd
+      state: restarted
+      enabled: true
+    become: yes
+
+  - name: Remove NGINX default configurations
+    file:
+      path: "{{ item }}"
+      state: absent
+    with_items:
+        - "/etc/nginx/sites-available/default"
+        - "/etc/nginx/sites-enabled/default"
+
+  - name: Enable and start NGINX
+    service:
+      state: reloaded
+      enabled: true
+      name: nginx
+    become: yes
