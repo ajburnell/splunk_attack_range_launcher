@@ -105,6 +105,13 @@
         WantedBy=multi-user.target
     become: yes
 
+  - name: Enable and start the CTFd service.
+    service:
+      name: ctfd
+      state: started
+      enabled: true
+    become: yes
+
 ## NGINX configuration ##
 ## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
 
