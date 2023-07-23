@@ -91,7 +91,7 @@ resource "aws_instance" "ctfd_server" {
     }
   }
 
-  instance_type = "m5.xlarge"
+  instance_type = "m5.medium"
   tags = {
     Name = "ctfd"
   }
@@ -120,8 +120,7 @@ resource "aws_instance" "ctfd_server" {
       "sudo cp /tmp/ctfd_key.pub /home/ctfd/.ssh/authorized_keys",
       "sudo chown -R ctfd:ctfd /home/ctfd/.ssh",
       "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys",
-      #" echo 'ctfd:${random_password.ctfd_password.result}' | sudo chpasswd",
-      #"sudo chmod 440 /etc/sudoers.d/ctfd"
+      "sudo su -c \"echo 'ctfd ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/ctfd\""
     ]
 
    connection {
@@ -135,7 +134,7 @@ resource "aws_instance" "ctfd_server" {
   provisioner "local-exec" {
     command = <<EOT
     echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.ini
-    ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ubuntu -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
+    ANSIBLE_FORCE_COLOR=1 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml
   EOT
   }
 
