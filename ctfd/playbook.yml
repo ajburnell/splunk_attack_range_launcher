@@ -25,7 +25,7 @@
   become: yes
 
   # Currently doing this in Terraform.
-  #tasks:
+  tasks:
   #- name: Configure a ctfd user.
   #  user:
   #    name: "{{ ctfd_system_user }}"
