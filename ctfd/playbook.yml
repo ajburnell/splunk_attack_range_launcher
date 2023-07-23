@@ -40,7 +40,6 @@
         - build-essential
         - libffi-dev
     become: yes
-
   - name: Create CTFd folder.
     file:
       path: "{{ ctfd_location }}"
@@ -109,6 +108,10 @@
 ## NGINX configuration ##
 ## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
 
+  - name: Grab the public IP first so we can use it for rapid access to test.
+    command: curl http://169.254.169.254/latest/meta-data/public-ipv4
+    register: ctfd_ec2_public_ip
+
   - name: Create the NGINX CTFd site configuration
     blockinfile:
       create: true
@@ -117,8 +120,9 @@
       block: |
         server {
           listen 443;
-          server_name {{ ctfd_domain_name }};
+          server_name {{ ctfd_domain_name }} {{ ctfd_ec2_public_ip }};
           client_max_body_size 75M;
+          
           location / {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
