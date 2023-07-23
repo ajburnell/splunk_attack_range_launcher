@@ -127,7 +127,7 @@
       state: present
       block: |
         server {
-          listen 443;
+          listen 80;
           server_name {{ ctfd_domain_name }};
           client_max_body_size 75M;
           
