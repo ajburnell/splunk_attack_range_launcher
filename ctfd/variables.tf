@@ -8,7 +8,7 @@ variable "private_key_filename" {
   description = "The filename to write the private key too."
 }
 
-variable "r53_zone_id" {
+variable "r53_domain" {
   type = string  
-  description = "The Zone ID for where we want to create the Route 53 records."
+  description = "The domain zone for where we want to create the Route 53 records."
 }
