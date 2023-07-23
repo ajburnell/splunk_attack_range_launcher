@@ -2,6 +2,7 @@
 ## Using m-class instances to get balance of VCPU with high memory ##
 ## TODO
 ## - Modularise the key creation
+## - Generate a password for the ctfd user for sudo instead of ALL.
 
 terraform {
   required_providers {
@@ -105,7 +106,9 @@ resource "aws_instance" "ctfd_server" {
       "sudo mkdir -p /home/ctfd/.ssh",
       "sudo cp /tmp/ctfd_key.pub /home/ctfd/.ssh/authorized_keys",
       "sudo chown -R ctfd:ctfd /home/ctfd/.ssh",
-      "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys" 
+      "sudo chmod 700 /home/ctfd/.ssh && sudo chmod 600 /home/ctfd/.ssh/authorized_keys",
+      "sudo echo "ctfd ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ctfd",
+      "sudo chmod 440 /etc/sudoers.d/ctfd"
     ]
 
    connection {
