@@ -8,7 +8,7 @@ variable "private_key_filename" {
   description = "The filename to write the private key too."
 }
 
-variable "ctfd_hostname"
+variable "ctfd_hostname" {
   type = string
   description = "The hostname of the ctfd server for the A record."
 }
