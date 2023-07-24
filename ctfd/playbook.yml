@@ -2,8 +2,7 @@
 ## Tested working with Ubuntu on AWS and with Vagrant ##
 
 ## TODO:
-## - Implement mariadb and secure installation.
-## - Implement redis.
+## - Tidy up a few code blocks to user variables instead of hardcoded.
 ## - Make certbot idempotent. It injects code into middle of Ansible managed block :-|
 
 # https://nopresearcher.github.io/Deploying-CTFd/
@@ -39,8 +38,10 @@
         - tmux
         - build-essential
         - libffi-dev
+        - redis
+        - python3-mysqldb
     become: yes
-    
+
   - name: Create CTFd folder.
     file:
       path: "{{ ctfd_location }}"
@@ -51,6 +52,80 @@
       repo: "https://github.com/CTFd/CTFd"
       clone: true
       dest: "{{ ctfd_location }}"
+      force: true
+
+  - name: Create service password for Redis and MariaDB.
+    set_fact:
+      service_pass: "{{ lookup('ansible.builtin.password', '/dev/null', length=16) }}"
+
+  ### REDIS ###
+  # Redis default binds only to localhost. But we add ACLs for CTFd anyway.
+  - name: Create Redis user cache ACL.
+    copy:
+      dest: "/etc/redis/users.acl"
+      content: "user {{ ctfd_system_user }} on +@all -DEBUG ~* >{{ service_pass }}"
+      owner: redis
+      group: redis
+    become: yes
+
+  - name: Enable the use of the Redis user cache ACL.
+    lineinfile:
+      path: "/etc/redis/redis.conf"
+      regexp: '^# aclfile'
+      line: "aclfile /etc/redis/users.acl"
+
+  - name: Restart the Redis cache.
+    service:
+      name: redis
+      state: restarted
+    become: yes
+
+  - name: Add Redis details to CTFd configuration.
+    lineinfile:
+      path: "{{ ctfd_location }}/CTFd/config.ini"
+      regexp: '^REDIS_URL ='
+      line: "REDIS_URL = redis://{{ ctfd_system_user }}:{{ service_pass }}@localhost:6379"
+
+  ### END REDIS ###
+
+  ### SECURE MARIADB DATABASE SERVER ###
+  - name: Remove all anonymous database user accounts
+    community.mysql.mysql_user:
+      name: ''
+      host_all: true
+      state: absent
+      login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+  - name: Remove remote login for database user root
+    community.mysql.mysql_query:
+      query: DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+      login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+  - name: Remove test database
+    community.mysql.mysql_db:
+      name: test
+      state: absent
+      login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+  - name: Change database root password.
+    community.mysql.mysql_user:
+      name: root
+      password: "{{ service_pass }}"
+      login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+  - name: Flush privileges;
+    community.mysql.mysql_query:
+      query: "FLUSH PRIVILEGES;"
+      login_unix_socket: "/var/run/mysqld/mysqld.sock"
+      login_password: "{{ service_pass }}"
+
+  ### END SECURE MARIADB DATABASE SERVER ###
+
+  - name: Insert MariaDB creds into CTFd configuration.
+    lineinfile:
+      path: "{{ ctfd_location }}/CTFd/config.ini"
+      regexp: '^DATABASE_URL ='
+      line: "DATABASE_URL = mysql+pymysql://root:{{ service_pass }}@localhost/ctfd"
 
   - name: Install requirements with pip.
     pip:
@@ -78,12 +153,12 @@
       owner: ctfd
       group: www-data
 
-## GUNICORN settings ##
-## We increase the keep-alive as it's sitting behind NGINX ##
-## Ref: https://docs.gunicorn.org/en/stable/settings.html ##
-## Recommended workers is 2-4 x CPU_CORES
-## Value is set based on a 4 VCPU AWS/GCP host.
-## Ref: https://medium.com/building-the-system/gunicorn-3-means-of-concurrency-efbb547674b7
+  ## GUNICORN settings ##
+  ## We increase the keep-alive as it's sitting behind NGINX ##
+  ## Ref: https://docs.gunicorn.org/en/stable/settings.html ##
+  ## Recommended workers is 2-4 x CPU_CORES
+  ## Value is set based on a 4 VCPU AWS/GCP host.
+  ## Ref: https://medium.com/building-the-system/gunicorn-3-means-of-concurrency-efbb547674b7
 
   - name: Create the gunicorn ctfd system unit service file.
     blockinfile:
@@ -113,8 +188,8 @@
       enabled: true
     become: yes
 
-## NGINX configuration ##
-## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
+  ## NGINX configuration ##
+  ## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
   - name: Create the NGINX CTFd site configuration
     blockinfile:
       create: true
@@ -125,7 +200,7 @@
           listen 80;
           server_name {{ ctfd_domain_name }};
           client_max_body_size 75M;
-          
+
           location / {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
@@ -144,7 +219,7 @@
       dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
       state: link
 
-  - name: Restart the CTFd service. It seems to need this.
+  - name: Restart the CTFd service. It seems to need this following startup.
     service:
       name: ctfd
       state: restarted
@@ -165,6 +240,7 @@
       name: nginx
     become: yes
 
-  - name: Install SSL certificate with certbot
-    command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
-    register: certbot
+    # Comment out when testing due to rate limiting.of 5 certs in one week for same domain.
+    #- name: Install SSL certificate with certbot
+    #command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
+    #register: certbot
