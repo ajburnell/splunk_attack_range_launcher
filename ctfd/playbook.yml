@@ -4,6 +4,7 @@
 ## TODO:
 ## - Tidy up a few code blocks to user variables instead of hardcoded.
 ## - Make certbot idempotent. It injects code into middle of Ansible managed block :-|
+## - Configure ufw.
 
 # https://nopresearcher.github.io/Deploying-CTFd/
 # https://github.com/CTFd/CTFd/wiki/Advanced-Deployment
