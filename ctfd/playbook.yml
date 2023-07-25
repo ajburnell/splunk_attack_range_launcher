@@ -4,7 +4,6 @@
 ## TODO:
 ## - Tidy up a few code blocks to user variables instead of hardcoded.
 ## - Make certbot idempotent. It injects code into middle of Ansible managed block :-|
-## - Configure ufw.
 
 # https://nopresearcher.github.io/Deploying-CTFd/
 # https://github.com/CTFd/CTFd/wiki/Advanced-Deployment
@@ -245,3 +244,31 @@
     #- name: Install SSL certificate with certbot
     #command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
     #register: certbot
+
+    ### FIREWALL CONFIGURATION ###
+  - name: Enable rate limiting on the SSH port to stop brute force attacks.
+    community.general.ufw:
+      rule: limit
+      port: ssh
+      proto: tcp
+      direction: in
+    become: yes
+
+  - name: Allow http/s ports into the firewall.
+    community.general.ufw:
+      rule: allow
+      port: "{{ item }}"
+      proto: tcp
+      direction: in
+    with_items:
+      - 80
+      - 443
+    become: yes
+
+  - name: Enable the firewall and explicitly set default deny.
+    community.general.ufw:
+      state: enabled
+      policy: deny
+    become: yes
+
+    ### END FIREWALL CONFIGURATION ###
