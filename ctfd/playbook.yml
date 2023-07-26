@@ -261,7 +261,7 @@
           service:
             name: ctfd
             state: restarted
-        become: yes
+      become: yes
 
   ### FIREWALL ###
   tasks:
@@ -288,4 +288,4 @@
           community.general.ufw:
             state: enabled
             policy: deny
-        become: yes
+      become: yes
