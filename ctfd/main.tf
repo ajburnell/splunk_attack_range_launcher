@@ -4,20 +4,6 @@
 ## - Modularise the key creation
 ## - Generate a password for the ctfd user for sudo instead of ALL.
 
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-# Configure the AWS Provider
-provider "aws" {
-  region = "ap-southeast-2"
-}
-
 ## Get the latest Ubuntu AMI
 data "aws_ami" "ubuntu_x86_64" {
   most_recent = true
@@ -78,7 +64,7 @@ resource "aws_instance" "ctfd_server" {
     }
   }
 
-  instance_type = "m5.large"
+  instance_type = "t2.medium"
   tags = {
     Name = "ctfd"
   }
@@ -118,23 +104,68 @@ resource "aws_instance" "ctfd_server" {
     }
   }
 
-  provisioner "local-exec" {
-    command = <<EOT
-    echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.ini
-    ANSIBLE_FORCE_COLOR=1 ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} playbook.yml -vv
-  EOT
-  }
-
   depends_on = [
         aws_key_pair.akp,
         local_file.local_key_pair
         ]
 }
 
-resource "aws_route53_record" "ctfd-a" {
+resource "aws_route53_record" "ctfd_a" {
   zone_id = var.r53_zone_id
   name    = var.ctfd_hostname
   type    = "A"
   ttl     = "300"
   records = [ aws_instance.ctfd_server.public_ip ]
 }
+
+## Create the Ansible inventoy file
+resource "local_file" "ansible_inventory_ctfd" {
+  filename = "hosts.ini"
+  content = <<EOT
+        [ctfd]
+        ${aws_instance.ctfd_server.public_ip}
+  EOT
+}
+
+## We do this outside the instance creation so that the
+## AWS R53 record exists. Otherwise the certbot DNS checks
+## will fail in the playbook. :(
+
+resource "terraform_data" "ctfd_ansible" {
+
+  provisioner "local-exec" {
+    command = <<EOT
+    echo -e "[ctfd]\n${aws_instance.ctfd_server.public_ip}" > hosts.bak
+    ANSIBLE_FORCE_COLOR=1 ansible-playbook -u ctfd -i hosts.ini --private-key ${var.private_key_filename} --ssh-common-args='-o StrictHostKeyChecking=no' playbook.yml -vv
+    EOT
+  }
+
+  depends_on = [
+    aws_instance.ctfd_server,
+    aws_route53_record.ctfd_a
+  ]
+}
+
+## Doesn't quite seem ready for prime time.
+# resource "ansible_playbook" "provision_ctfd" {
+#  playbook     = "playbook.yml"
+#  name         = aws_instance.ctfd_server.public_ip
+#  replayable   = true
+#  verbosity    = 4
+#  groups       = [ "ctfd" ]
+#
+#  # Debug
+#  ignore_playbook_failure = true  # <- here
+#
+#  extra_vars = {
+#    ansible_host                       = aws_instance.ctfd_server.public_ip
+#    ansible_user                       = "ctfd"
+#    ansible_ssh_private_key_file       = var.private_key_filename
+#    ansible_ssh_common_args            = "\"'-o StrictHostKeyChecking=no'\""
+#  }
+#
+#  depends_on = [
+#    aws_instance.ctfd_server,
+#    aws_route53_record.ctfd_a
+#  ]
+#}
