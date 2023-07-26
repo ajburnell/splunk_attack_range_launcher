@@ -4,6 +4,7 @@
 ## TODO:
 ## - Tidy up a few code blocks to user variables instead of hardcoded.
 ## - Make certbot idempotent. It injects code into middle of Ansible managed block :-|
+## - Make the password idempotent. Perhaps from vault.
 
 # https://nopresearcher.github.io/Deploying-CTFd/
 # https://github.com/CTFd/CTFd/wiki/Advanced-Deployment
@@ -58,16 +59,16 @@
             owner: redis
             group: redis
   
-      - name: Enable the use of the Redis user cache ACL.
-        lineinfile:
-          path: "/etc/redis/redis.conf"
-          regexp: '^# aclfile'
-          line: "aclfile /etc/redis/users.acl"
-  
-      - name: Restart the Redis cache.
-        service:
-          name: redis
-          state: restarted
+        - name: Enable the use of the Redis user cache ACL.
+          lineinfile:
+            path: "/etc/redis/redis.conf"
+            regexp: '^# aclfile'
+            line: "aclfile /etc/redis/users.acl"
+    
+        - name: Restart the Redis cache.
+          service:
+            name: redis
+            state: restarted
       become: yes
   
   ### MARIA DB ###
@@ -120,36 +121,36 @@
             dest: "{{ ctfd_location }}"
             force: true
   
-          - name: Set owner of ctfd web root.
-            file:
-              owner: "{{ ctfd_system_user }}"
-              group: "www-data"
-              recurse: yes
-              path: "{{ ctfd_location }}"
+        - name: Set owner of ctfd web root.
+          file:
+            owner: "{{ ctfd_system_user }}"
+            group: "www-data"
+            recurse: yes
+            path: "{{ ctfd_location }}"
 
-          - name: Install requirements with pip.
-            pip:
-              requirements: "{{ ctfd_location }}/requirements.txt"
-              virtualenv: "{{ ctfd_location }}/venv"
+        - name: Install requirements with pip.
+          pip:
+            requirements: "{{ ctfd_location }}/requirements.txt"
+            virtualenv: "{{ ctfd_location }}/venv"
+
+        - name: Create logging locations for ctfd service.
+          file:
+            path: "/var/log/ctfd/"
+            state: directory
+            owner: ctfd
+            group: www-data
   
-          - name: Create logging locations for ctfd service.
-            file:
-              path: "/var/log/ctfd/"
-              state: directory
-              owner: ctfd
-              group: www-data
-  
-          - name: Add Redis details to CTFd configuration.
-            lineinfile:
-              path: "{{ ctfd_location }}/CTFd/config.ini"
-              regexp: '^REDIS_URL ='
-              line: "REDIS_URL = redis://{{ ctfd_system_user }}:{{ service_pass }}@localhost:6379"
-        
-          - name: Insert MariaDB creds into CTFd configuration.
-            lineinfile:
-              path: "{{ ctfd_location }}/CTFd/config.ini"
-              regexp: '^DATABASE_URL ='
-              line: "DATABASE_URL = mysql+pymysql://root:{{ service_pass }}@localhost/ctfd"
+        - name: Add Redis details to CTFd configuration.
+          lineinfile:
+            path: "{{ ctfd_location }}/CTFd/config.ini"
+            regexp: '^REDIS_URL ='
+            line: "REDIS_URL = redis://{{ ctfd_system_user }}:{{ service_pass }}@localhost:6379"
+      
+        - name: Insert MariaDB creds into CTFd configuration.
+          lineinfile:
+            path: "{{ ctfd_location }}/CTFd/config.ini"
+            regexp: '^DATABASE_URL ='
+            line: "DATABASE_URL = mysql+pymysql://root:{{ service_pass }}@localhost/ctfd"
         
   ### GUNICORN ###
   tasks:
