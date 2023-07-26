@@ -212,19 +212,19 @@
             }
         become: yes
   
-    - name: Link the new NGINX configuration.
-      file:
-        src: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
-        dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
-        state: link
-  
-    - name: Remove NGINX default configurations
-      file:
-        path: "{{ item }}"
-        state: absent
-      with_items:
-          - "/etc/nginx/sites-available/default"
-          - "/etc/nginx/sites-enabled/default"
+      - name: Link the new NGINX configuration.
+        file:
+          src: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
+          dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
+          state: link
+    
+      - name: Remove NGINX default configurations
+        file:
+          path: "{{ item }}"
+          state: absent
+        with_items:
+            - "/etc/nginx/sites-available/default"
+            - "/etc/nginx/sites-enabled/default"
 
   ### SSL CERTIFICATES ###
   - name: Install Let's Encrypt certbot and generate certificate
