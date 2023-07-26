@@ -48,112 +48,108 @@
       service_pass: "{{ lookup('ansible.builtin.password', '/dev/null', length=16) }}"
 
   ### REDIS ###
-  tasks:
-    - name: Configure Redis user and and enable the cache.
-      block:
-        # Redis default binds only to localhost. But we add ACLs for CTFd anyway.
-        - name: Create Redis user cache ACL.
-          copy:
-            dest: "/etc/redis/users.acl"
-            content: "user {{ ctfd_system_user }} on +@all -DEBUG ~* >{{ service_pass }}"
-            owner: redis
-            group: redis
+  - name: Configure Redis user and and enable the cache.
+    block:
+      # Redis default binds only to localhost. But we add ACLs for CTFd anyway.
+      - name: Create Redis user cache ACL.
+        copy:
+          dest: "/etc/redis/users.acl"
+          content: "user {{ ctfd_system_user }} on +@all -DEBUG ~* >{{ service_pass }}"
+          owner: redis
+          group: redis
+
+      - name: Enable the use of the Redis user cache ACL.
+        lineinfile:
+          path: "/etc/redis/redis.conf"
+          regexp: '^# aclfile'
+          line: "aclfile /etc/redis/users.acl"
   
-        - name: Enable the use of the Redis user cache ACL.
-          lineinfile:
-            path: "/etc/redis/redis.conf"
-            regexp: '^# aclfile'
-            line: "aclfile /etc/redis/users.acl"
-    
-        - name: Restart the Redis cache.
-          service:
-            name: redis
-            state: restarted
-      become: yes
-  
+      - name: Restart the Redis cache.
+        service:
+          name: redis
+          state: restarted
+    become: yes
+
   ### MARIA DB ###
-  tasks:
-    - name: Secure the MariaDB database server.
-      block: 
-        - name: Remove all anonymous database user accounts
-          community.mysql.mysql_user:
-            name: ''
-            host_all: true
-            state: absent
-            login_unix_socket: "/var/run/mysqld/mysqld.sock"
-  
-        - name: Remove remote login for database user root
-          community.mysql.mysql_query:
-            query: DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
-            login_unix_socket: "/var/run/mysqld/mysqld.sock"
-  
-        - name: Remove test database
-          community.mysql.mysql_db:
-            name: test
-            state: absent
-            login_unix_socket: "/var/run/mysqld/mysqld.sock"
-  
-        - name: Change database root password.
-          community.mysql.mysql_user:
-            name: root
-            password: "{{ service_pass }}"
-            login_unix_socket: "/var/run/mysqld/mysqld.sock"
-  
-        - name: Flush privileges;
-          community.mysql.mysql_query:
-            query: "FLUSH PRIVILEGES;"
-            login_unix_socket: "/var/run/mysqld/mysqld.sock"
-            login_password: "{{ service_pass }}"
-  
+  - name: Secure the MariaDB database server.
+    block: 
+      - name: Remove all anonymous database user accounts
+        community.mysql.mysql_user:
+          name: ''
+          host_all: true
+          state: absent
+          login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+      - name: Remove remote login for database user root
+        community.mysql.mysql_query:
+          query: DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+          login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+      - name: Remove test database
+        community.mysql.mysql_db:
+          name: test
+          state: absent
+          login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+      - name: Change database root password.
+        community.mysql.mysql_user:
+          name: root
+          password: "{{ service_pass }}"
+          login_unix_socket: "/var/run/mysqld/mysqld.sock"
+
+      - name: Flush privileges;
+        community.mysql.mysql_query:
+          query: "FLUSH PRIVILEGES;"
+          login_unix_socket: "/var/run/mysqld/mysqld.sock"
+          login_password: "{{ service_pass }}"
+
   ### CTFD ###
-  tasks:
-    - name: Downnload and configure CTFd server.
-      block:
-        - name: Create CTFd folder.
-          file:
-            path: "{{ ctfd_location }}"
-            state: directory
-  
-        - name: Clone CTFd git repository.
-          git:
-            repo: "https://github.com/CTFd/CTFd"
-            clone: true
-            dest: "{{ ctfd_location }}"
-            force: true
-  
-        - name: Set owner of ctfd web root.
-          file:
-            owner: "{{ ctfd_system_user }}"
-            group: "www-data"
-            recurse: yes
-            path: "{{ ctfd_location }}"
+  - name: Downnload and configure CTFd server.
+    block:
+      - name: Create CTFd folder.
+        file:
+          path: "{{ ctfd_location }}"
+          state: directory
 
-        - name: Install requirements with pip.
-          pip:
-            requirements: "{{ ctfd_location }}/requirements.txt"
-            virtualenv: "{{ ctfd_location }}/venv"
+      - name: Clone CTFd git repository.
+        git:
+          repo: "https://github.com/CTFd/CTFd"
+          clone: true
+          dest: "{{ ctfd_location }}"
+          force: true
 
-        - name: Create logging locations for ctfd service.
-          file:
-            path: "/var/log/ctfd/"
-            state: directory
-            owner: ctfd
-            group: www-data
-  
-        - name: Add Redis details to CTFd configuration.
-          lineinfile:
-            path: "{{ ctfd_location }}/CTFd/config.ini"
-            regexp: '^REDIS_URL ='
-            line: "REDIS_URL = redis://{{ ctfd_system_user }}:{{ service_pass }}@localhost:6379"
+      - name: Set owner of ctfd web root.
+        file:
+          owner: "{{ ctfd_system_user }}"
+          group: "www-data"
+          recurse: yes
+          path: "{{ ctfd_location }}"
+
+      - name: Install requirements with pip.
+        pip:
+          requirements: "{{ ctfd_location }}/requirements.txt"
+          virtualenv: "{{ ctfd_location }}/venv"
+
+      - name: Create logging locations for ctfd service.
+        file:
+          path: "/var/log/ctfd/"
+          state: directory
+          owner: ctfd
+          group: www-data
+
+      - name: Add Redis details to CTFd configuration.
+        lineinfile:
+          path: "{{ ctfd_location }}/CTFd/config.ini"
+          regexp: '^REDIS_URL ='
+          line: "REDIS_URL = redis://{{ ctfd_system_user }}:{{ service_pass }}@localhost:6379"
+    
+      - name: Insert MariaDB creds into CTFd configuration.
+        lineinfile:
+          path: "{{ ctfd_location }}/CTFd/config.ini"
+          regexp: '^DATABASE_URL ='
+          line: "DATABASE_URL = mysql+pymysql://root:{{ service_pass }}@localhost/ctfd"
       
-        - name: Insert MariaDB creds into CTFd configuration.
-          lineinfile:
-            path: "{{ ctfd_location }}/CTFd/config.ini"
-            regexp: '^DATABASE_URL ='
-            line: "DATABASE_URL = mysql+pymysql://root:{{ service_pass }}@localhost/ctfd"
-        
   ### GUNICORN ###
-  tasks:
   - name: Configure gunicorn service and enable
     block:
       ## We increase the keep-alive as it's sitting behind NGINX ##
@@ -191,7 +187,6 @@
 
   ## NGINX ##
   ## Ref: https://docs.gunicorn.org/en/latest/deploy.html ##
-  tasks:
   - name: Configure NGINX and restart service
     block:
       - name: Create the NGINX CTFd site configuration
@@ -216,76 +211,73 @@
               }
             }
         become: yes
-    
-      - name: Link the new NGINX configuration.
-        file:
-          src: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
-          dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
-          state: link
-    
-      - name: Remove NGINX default configurations
-        file:
-          path: "{{ item }}"
-          state: absent
-        with_items:
-            - "/etc/nginx/sites-available/default"
-            - "/etc/nginx/sites-enabled/default"
+  
+    - name: Link the new NGINX configuration.
+      file:
+        src: "/etc/nginx/sites-available/{{ ctfd_domain_name }}"
+        dest: "/etc/nginx/sites-enabled/{{ ctfd_domain_name }}"
+        state: link
+  
+    - name: Remove NGINX default configurations
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+          - "/etc/nginx/sites-available/default"
+          - "/etc/nginx/sites-enabled/default"
 
   ### SSL CERTIFICATES ###
-  tasks:
-    - name: Install Let's Encrypt certbot and generate certificate
-      block:
-          - name: Install Let's Encrypt.
-            pip:
-              state: present
-              name:
-                - certbot
-                - certbot-nginx
+  - name: Install Let's Encrypt certbot and generate certificate
+    block:
+        - name: Install Let's Encrypt.
+          pip:
+            state: present
+            name:
+              - certbot
+              - certbot-nginx
 
-            # Comment out when testing due to rate limiting.of 5 certs in one week for same domain.
-            #- name: Install SSL certificate with certbot
-            #command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
-            #register: certbot
+          # Comment out when testing due to rate limiting.of 5 certs in one week for same domain.
+          #- name: Install SSL certificate with certbot
+          #command: "sudo certbot --nginx -d ctfd.ablab.com.au -m xenoc17299@sparkroi.com --non-interactive --agree-tos"
+          #register: certbot
 
-### RESTART SOME SERVICES ###
-  tasks:
-    - name: Configure and enable firewall
-      block:
-        - name: Enable and start NGINX
-          service:
-            state: reloaded
-            enabled: true
-            name: nginx
-      
-        - name: Restart the CTFd service. It seems to need this following startup.
-          service:
-            name: ctfd
-            state: restarted
-      become: yes
+  ### RESTART SOME SERVICES ###
+  - name: Restart NGINX and gunicorn CTFd service.
+    block:
+      - name: Enable and start NGINX
+        service:
+          state: reloaded
+          enabled: true
+          name: nginx
+    
+      - name: Restart the CTFd service.
+        service:
+          name: ctfd
+          state: restarted
+    become: yes
 
   ### FIREWALL ###
-  tasks:
-    - name: Configure and enable firewall
-      block:
-        - name: Enable rate limiting on the SSH port to stop brute force attacks.
-          community.general.ufw:
-            rule: limit
-            port: ssh
-            proto: tcp
-            direction: in
+  - name: Configure and enable firewall
+    block:
+      - name: Enable rate limiting on the SSH port to stop brute force attacks.
+        community.general.ufw:
+          rule: limit
+          port: ssh
+          proto: tcp
+          direction: in
 
-        - name: Allow http/s ports into the firewall.
-          community.general.ufw:
-            rule: allow
-            port: "{{ item }}"
-            proto: tcp
-            direction: in
-          with_items:
-            - 80
-            - 443
-      
-        - name: Enable the firewall and explicitly set default deny.
-          community.general.ufw:
-            state: enabled
-            policy: deny
-      become: yes
+      - name: Allow http/s ports into the firewall.
+        community.general.ufw:
+          rule: allow
+          port: "{{ item }}"
+          proto: tcp
+          direction: in
+        with_items:
+          - 80
+          - 443
+    
+      - name: Enable the firewall and explicitly set default deny.
+        community.general.ufw:
+          state: enabled
+          policy: deny
+    become: yes
